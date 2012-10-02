@@ -42,9 +42,9 @@ component name="rimraf" extends="foundry.core" {
 
 	  rimraf_(p,cb)
 	}
-
+	
 	variables.rimraf_ = function(p, cb) {
-	  fs[lstat](p, function (er, s) {
+	  fs.lstat(p, function (er, s) {
 	    if (er) {
 	      // already gone
 	      if (er.code EQ "ENOENT") return cb();
