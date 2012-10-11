@@ -15,7 +15,6 @@ component output="false" displayname="rimraf test" extends="mxunit.framework.Tes
 	public any function woo() {
 		var mkdirp = new mkdirp.mkdirp();
 		var rmrf = new rimraf();
-		var file = "";
 
 	   	for(i=1; i <= 2; i++) {
 	   		console.log("Test run ##" & i);
@@ -27,23 +26,24 @@ component output="false" displayname="rimraf test" extends="mxunit.framework.Tes
 		    
 		    mkdirp.mkdirp(file, 0755, function (err) {
 		        if(structKeyExists(arguments, 'err') && !_.isEmpty(err)) fail(err);
-		        else path.exists(file, function(ex) {
-			            if(!structKeyExists(arguments, 'ex') || !ex) fail('file not created');
-			            else fs.stat(file, function (err, stat) {
-				                if (structKeyExists(arguments, 'err') && !_.isEmpty(err)) fail(err);
-				                else {
-				                    assertEquals(stat.mode, "rw", "Should be equal.");
-				                    assertTrue(stat.isDirectory, "target not a directory.");
+		        else fs.exists(file, function(ex) {
+		            if(!structKeyExists(arguments, 'ex') || !ex) fail('file not created');
+		            else fs.stat(file, function (err, stat) {
+			                if (structKeyExists(arguments, 'err') && !_.isEmpty(err)) fail(err);
+			                else {
+			                    assertEquals(stat.mode, "rw", "Should be equal.");
+			                    assertTrue(stat.isDirectory, "target not a directory.");
 
-				                    rmrf.rmrf(path.join(file, "target"), function (er) {
-				                    	dump(er);
-				                    	abort;
-										if(structKeyExists(arguments, 'er')) {
-											fail(er);
-										}
-									});
-				                }
-			            	});
+			                    fileArray = listToArray(file, "/");
+			                    fileToDelete = "/" & arrayToList([fileArray[1], fileArray[2]], "/");
+			                    
+			                    rmrf.rmrf(fileToDelete, function (er) {
+									if(structKeyExists(arguments, 'er') && !_.isEmpty(er)) {
+										fail(er);
+									}
+								});
+			                }
+		            	});
 		        	});
 		    });
 		}
