@@ -1,186 +1,186 @@
 component name="rimraf" extends="foundry.core" {
-	variables.path = require("path");
-	variables.fs = require("fs");
-	variables.e = require("emitter");
-	variables._ = require("util").init();
-	variables.console = require("console");
+    variables.path = require("path");
+    variables.fs = require("fs");
+    variables.futil = createObject("java","org.apache.commons.io.FileUtils");
+    variables._ = require("util").init();
+    variables.console = require("console");
 
-	this['emitter'] = new foundry.core.emitter();
-	variables.isWindows = (server.os.name CONTAINS "windows");
+    variables.isWindows = (server.os.name CONTAINS "windows");
 
-	// for EMFILE handling
-	variables.timeout = 0;
-	this['emfile_max'] = 1000;
-	this['busytries_max'] = 3;
+    // for EMFILE handling
+    variables.timeout = 0;
+    this['emfile_max'] = 1000;
+    this['busytries_max'] = 3;
 
-	public any function rmrf(p, cb) {
-		if (!structKeyExists(arguments,'cb')) console.log("No callback passed to rimraf()");
+    public any function rmrf(p, cb) {
+        if (!structKeyExists(arguments,'cb')) console.log("No callback passed to rimraf()");
 
-		var busyTries = 0;
+        var busyTries = 0;
+        var currFile = createObject("java", "java.io.File").init(p);
 
-		var callB = function(er) {
-			if (er) {
-				if (er.code EQ "EBUSY" && busyTries < this.BUSYTRIES_MAX) {
-					busyTries++
-					var time = busyTries * 100
-					// try again, with the same exact callback as this one.
-					sleep(time);
-					rimraf_(p, callB);
-				}
+        var callB = function(er) {
+            if (er) {
+                if (er.code EQ "EBUSY" && busyTries < this.BUSYTRIES_MAX) {
+                    busyTries++
+                    var time = busyTries * 100
+                    // try again, with the same exact callback as this one.
+                    sleep(time);
+                    rimraf_(p, callB);
+                }
 
-				// this one wont happen if graceful-fs is used.
-				if (er.code EQ "EMFILE" && timeout < this.EMFILE_MAX) {
-					sleep(timeout++);
-					rimraf_(p, callB);
-				}
+                // this one wont happen if graceful-fs is used.
+                if (er.code EQ "EMFILE" && timeout < this.EMFILE_MAX) {
+                    sleep(timeout++);
+                    rimraf_(p, callB);
+                }
 
-				// already gone
-				if (er.code EQ "ENOENT") er = null
-			}
+                // already gone
+                if (er.code EQ "ENOENT") er = null
+            }
 
-			timeout = 0
-			cb(er)
-		}
-		rimraf_(p,cb);
-	}
-	
-	variables.rimraf_ = function(p, cb) {
-		fs.stat(p, function (er, s) {
-			if (structKeyExists(arguments, 'er') && !_.isEmpty(er)) {
-				// already gone
-				if (er.errorCode EQ "ENOENT") return cb();
+            timeout = 0
+            cb(er)
+        }
 
-				// some other kind of error, permissions, etc.
-				cb(er);
-			}
+        rimraf_(currFile,cb);
+    }
+    
+    variables.rimraf_ = function(p, cb) {
+        fs.stat(p, function (er, s) {
+            if (structKeyExists(arguments, 'er') && !_.isEmpty(er)) {
+                // already gone
+                if (er.errorCode EQ "ENOENT") return cb();
 
-			cb(rm_(p, s, false, cb));
-		});
-	};
+                // some other kind of error, permissions, etc.
+                cb(er);
+            }
 
-	variables.myGid = function() {
-	  var g = process.getuid && process.getgid();
-	  myGid = function() { return g; }
-	  return g;
-	};
+            cb(rm_(p, s, false, cb));
+        });
+    };
 
-	variables.myUid = function() {
-	  var u = process.getuid && process.getuid();
-	  myUid = function() { return u; }
-	  return u;
-	}
+    variables.myGid = function() {
+      var g = process.getuid && process.getgid();
+      myGid = function() { return g; }
+      return g;
+    };
 
-
-	variables.writable = function(s) {
-		var fileInfo = {};
-
-		if(fileExists(s) || directoryExists(s)) {
-	 		fileInfo = getFileInfo(s);
-
-	 		if(fileInfo.canWrite) return true;
-		}
-
-		return false;
-	}
-
-	/**
-	* 
-	* @PARAM p Path of the file or directory
-	* @PARAM s Stat info for path or directory
-	* @PARAM didWritableCheck Boolean of if func didWritableCheck() was ran on dir/file
-	* @PARAM cb Callback function for previous function
-	*/ 
-	variables.rm_ = function(p, s, didWritableCheck, cb) {
-		var directoryListing = "";
+    variables.myUid = function() {
+      var u = process.getuid && process.getuid();
+      myUid = function() { return u; }
+      return u;
+    }
 
 
-		if (!didWritableCheck && !writable(p)) {
-			// make file writable
-			// user/group/world, doesn't matter at this point
-			// since it's about to get nuked.
+    variables.writable = function(s) {
+        var fileInfo = {};
 
-			return fs.chmod(p, 'rw', function (er) {
-				if (er) return cb(er);
-					rm_(p, s, true, cb);
-				});
-		}
+        if(fileExists(s) || directoryExists(s)) {
+            fileInfo = getFileInfo(s);
 
-		if (!s.isDirectory) {
-			return fileDelete(p);
-		}
+            if(fileInfo.canWrite) return false;
+        }
 
-		// directory
-		directoryListing = directoryList(absolute_path=expandPath("../" & p), recurse=true, listInfo="path");
+        return false;
+    }
 
-		// asyncForEach(_map(directoryListing, function (f) {
-		// 	return path.join(p, f);
-		// }), function (file, cb) {
-		// 	rmrf(file, cb);
-		// }, function (er) {
-		// 	if (er) return cb(er);
-		// 	fs.rmdir(p, cb);
-		// });
+    /**
+    * 
+    * @PARAM p Path of the file or directory
+    * @PARAM s Stat info for path or directory
+    * @PARAM didWritableCheck Boolean of if func didWritableCheck() was ran on dir/file
+    * @PARAM cb Callback function for previous function
+    */ 
+    variables.rm_ = function(p, s, didWritableCheck, cb) {
+        var directoryListing = "";
 
-		try {
-			fs.rmdirSync(p, cb);
-		}
-		catch(any err) {
-			cb(err);
-		}
-		
+        if (!didWritableCheck && !writable(p)) {
+            // make file writable
+            // user/group/world, doesn't matter at this point
+            // since it's about to get nuked.
 
-		// fs.readdir(p, function (er, files) {
-			
-		// });
-	}
+            fs.chmod(p, 'rw', function (er) {
+                if (er) return cb(er);
+                    rm_(p, s, true, cb);
+                });
+        }
 
-	 variables.asyncForEach = function(list, fn, cb) {
-		// if (arrayLen(list) = 0) {
-		// 	cb();
-		// }
-		var c = arrayLen(list);
-		var errState = "";
+        // if (!s.isDirectory) {
+        //     return fileDelete(p);
+        // }
 
-		for(i = 1; i <= c; i++) {
-			fn(list[i], function(er) {
-				if(_.isEmpty(errState)) return false;
-				if(structKeyExists(arguments, 'er') && !_.isEmpty(er)) return cb(errState = er);
-				if(-- c EQ 0) return cb();
-			})
-		}
-		// list.forEach(function (item, i, list) {
-		// 	fn(item, function (er) {
-		// 		if (errState) return false;
-		// 		if (er) return cb(errState = er);
-		// 		if (-- c EQ 0) return cb();
-		// 	})
-		// })
-	}
+        // directory
+        directoryListing = directoryList(absolute_path=expandPath("../" & p), recurse=true, listInfo="path");
 
-	// this looks simpler, but it will fail with big directory trees,
-	// or on slow stupid awful cygwin filesystems
-	this.rimraf.sync = function(p) {
-	  try {
-	    var s = fs[lstatSync](p);
-	  } catch (er) {
-	    if (er.code EQ "ENOENT") return;
-	    throw er;
-	  }
+        // asyncForEach(_map(directoryListing, function (f) {
+        //  return path.join(p, f);
+        // }), function (file, cb) {
+        //  rmrf(file, cb);
+        // }, function (er) {
+        //  if (er) return cb(er);
+        //  fs.rmdir(p, cb);
+        // });
+        try {
+            //fs.rmdirSync(p, cb);
+            futil.forceDelete(p)
+        }
+        catch(any err) {
+            cb(err);
+        }
+        
 
-	  if (!writable(s)) {
-	    fs.chmodSync(p, s.mode || 0222);
-	  }
+        // fs.readdir(p, function (er, files) {
+            
+        // });
+    }
 
-	  if (!s.isDirectory()) return fs.unlinkSync(p);
+     variables.asyncForEach = function(list, fn, cb) {
+        // if (arrayLen(list) = 0) {
+        //  cb();
+        // }
+        var c = arrayLen(list);
+        var errState = "";
 
-	  fs.readdirSync(p).forEach(function (f) {
-	    this.rimraf.sync(path.join(p, f));
-	  });
+        for(i = 1; i <= c; i++) {
+            fn(list[i], function(er) {
+                if(_.isEmpty(errState)) return false;
+                if(structKeyExists(arguments, 'er') && !_.isEmpty(er)) return cb(errState = er);
+                if(-- c EQ 0) return cb();
+            })
+        }
+        // list.forEach(function (item, i, list) {
+        //  fn(item, function (er) {
+        //      if (errState) return false;
+        //      if (er) return cb(errState = er);
+        //      if (-- c EQ 0) return cb();
+        //  })
+        // })
+    }
 
-	  fs.rmdirSync(p);
-	};
+    // this looks simpler, but it will fail with big directory trees,
+    // or on slow stupid awful cygwin filesystems
+    this.rimraf.sync = function(p) {
+      try {
+        var s = fs[lstatSync](p);
+      } catch (er) {
+        if (er.code EQ "ENOENT") return;
+        throw er;
+      }
 
-	public array function _map(obj,iterator = _.identity, this = {}) {
+      if (!writable(s)) {
+        fs.chmodSync(p, s.mode || 0222);
+      }
+
+      if (!s.isDirectory()) return fs.unlinkSync(p);
+
+      fs.readdirSync(p).forEach(function (f) {
+        this.rimraf.sync(path.join(p, f));
+      });
+
+      fs.rmdirSync(p);
+    };
+
+    public array function _map(obj,iterator = _.identity, this = {}) {
     var result = [];
 
     if (isArray(arguments.obj)) {
