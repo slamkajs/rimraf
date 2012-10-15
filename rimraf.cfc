@@ -93,6 +93,7 @@ component name="rimraf" extends="foundry.core" {
 	variables.rm_ = function(p, s, didWritableCheck, cb) {
 		var directoryListing = "";
 
+
 		if (!didWritableCheck && !writable(p)) {
 			// make file writable
 			// user/group/world, doesn't matter at this point
@@ -111,14 +112,14 @@ component name="rimraf" extends="foundry.core" {
 		// directory
 		directoryListing = directoryList(absolute_path=expandPath("../" & p), recurse=true, listInfo="path");
 
-		asyncForEach(_map(directoryListing, function (f) {
-			return path.join(p, f);
-		}), function (file, cb) {
-			rmrf(file, cb);
-		}, function (er) {
-			if (er) return cb(er);
-			fs.rmdir(p, cb);
-		});
+		// asyncForEach(_map(directoryListing, function (f) {
+		// 	return path.join(p, f);
+		// }), function (file, cb) {
+		// 	rmrf(file, cb);
+		// }, function (er) {
+		// 	if (er) return cb(er);
+		// 	fs.rmdir(p, cb);
+		// });
 
 		try {
 			fs.rmdirSync(p, cb);
